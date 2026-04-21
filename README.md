@@ -93,3 +93,8 @@ aStructured phase-based learning,
 aContext-aware AI assistance,
 andDynamic UI synchronization.
 the result is a system that is not just informative—but intuitive, adaptive, and user-centric.
+
+
+
+
+Link to the app - https://ai.studio/apps/065925e0-b994-4b24-af67-567887b8d1f8
