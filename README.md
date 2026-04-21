@@ -83,7 +83,7 @@ mMisinformation barrier: Users may have misconceptions such as "I can’t vote w
 eEnvironment assumptions: Runs in a modern web environment; requires API key setup (e.g., via environment variables like `process.env.API_KEY`); stable internet connection for AI interaction.
 
 ## Screenshots
-## HomePage - 
+### HomePage - 
 ![image](https://github.com/harshithKumar12/MataDaan-Guide/blob/main/screenshots/homePage.png)
 
 ## Summary
