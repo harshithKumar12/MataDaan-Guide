@@ -1,6 +1,6 @@
 # Matadaan Guide: Election Education Assistant
 
-Matadaan Guide is an interactive, mentorship-driven web application designed to simplify and educate citizens about the election process, with a primary focus on the Indian democratic system. Instead of acting like a generic chatbot, it provides a structured, guided learning experience that walks users through the entire election lifecycle.
+Matadaan Guide is an interactive, mentorship-driven web application designed to simplify and educate citizens about the election process, with a primary focus on the Indian democratic system. Instead of acting like a generic chatbot, it provides a structured, guided learning experience that walks users through the entire election lifecycle (Vibe Coded using Google AI Studio)
 
 ## Chosen Vertical: Civic Education & Literacy
 
