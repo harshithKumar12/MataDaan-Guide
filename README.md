@@ -82,6 +82,10 @@ fExperienced voters → Need clarification on specific steps.
 mMisinformation barrier: Users may have misconceptions such as "I can’t vote without a voter ID card." The system proactively detects such cases and provides clear, factual corrections.
 eEnvironment assumptions: Runs in a modern web environment; requires API key setup (e.g., via environment variables like `process.env.API_KEY`); stable internet connection for AI interaction.
 
+## Screenshots
+## HomePage - 
+![image](https://github.com/harshithKumar12/MataDaan-Guide/blob/main/screenshots/homePage.png)
+
 ## Summary
 tMatadaan Guide transforms election education from a static information problem into an interactive, guided learning experience by combining:
 aStructured phase-based learning,
