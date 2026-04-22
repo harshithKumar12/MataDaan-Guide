@@ -1,0 +1,51 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // User Profiles
+    match /users/{userId} {
+      function isValidUser(data) {
+        return data.keys().hasAll(['uid', 'currentStepIndex', 'lastUpdated'])
+          && data.uid == request.auth.uid
+          && data.currentStepIndex is int
+          && data.currentStepIndex >= 0
+          && data.currentStepIndex <= 10;
+      }
+
+      allow get: if isOwner(userId) && isValidId(userId);
+      allow create: if isOwner(userId) && isValidId(userId) && isValidUser(request.resource.data);
+      allow update: if isOwner(userId) && isValidId(userId) && isValidUser(request.resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['currentStepIndex', 'lastUpdated', 'displayName']);
+    }
+
+    // Chat History
+    match /users/{userId}/messages/{messageId} {
+      function isValidMessage(data) {
+        return data.keys().hasAll(['role', 'text', 'timestamp'])
+          && data.role in ['user', 'model']
+          && data.text is string
+          && data.text.size() <= 4096
+          && data.timestamp is int;
+      }
+
+      allow list: if isOwner(userId) && isValidId(userId);
+      allow create: if isOwner(userId) && isValidId(userId) && isValidId(messageId) && isValidMessage(request.resource.data);
+    }
+  }
+}

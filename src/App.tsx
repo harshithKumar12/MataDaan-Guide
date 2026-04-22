@@ -1,19 +1,106 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Vote, Info, ShieldCheck, HelpCircle } from 'lucide-react';
+import { Vote, Info, ShieldCheck, HelpCircle, LogIn, LogOut, User as UserIcon } from 'lucide-react';
 import { ChatInterface } from './components/ChatInterface';
 import { ElectionTimeline } from './components/ElectionTimeline';
 import { ELECTION_STEPS } from './constants';
+import { auth, googleProvider, db } from './lib/firebase';
+import { signInWithPopup, signOut, onAuthStateChanged, User } from 'firebase/auth';
+import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 
 export default function App() {
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [activeModal, setActiveModal] = useState<'resources' | 'faq' | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [notification, setNotification] = useState<{ message: string; type: 'error' | 'success' | 'info' } | null>(null);
 
-  // Refined heuristic for step detection
+  // Clear notification after 5 seconds
+  useEffect(() => {
+    if (notification) {
+      const timer = setTimeout(() => setNotification(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification]);
+
+  // Auth Listener
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      setUser(user);
+      if (user) {
+        // Load user progress from Firestore
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        if (userDoc.exists()) {
+          setCurrentStepIndex(userDoc.data().currentStepIndex || 0);
+        } else {
+          // Initialize user in Firestore
+          await setDoc(doc(db, 'users', user.uid), {
+            uid: user.uid,
+            email: user.email,
+            displayName: user.displayName,
+            currentStepIndex: 0,
+            lastUpdated: serverTimestamp()
+          });
+        }
+      }
+      setLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleLogin = async () => {
+    try {
+      setLoading(true);
+      await signInWithPopup(auth, googleProvider);
+      setNotification({ message: 'Welcome back, Citizen!', type: 'success' });
+    } catch (error: any) {
+      console.error("Login Error:", error);
+      if (error.code === 'auth/popup-closed-by-user') {
+        setNotification({ 
+          message: 'Login popup was closed. Please allow popups and try again.', 
+          type: 'error' 
+        });
+      } else if (error.code === 'auth/unauthorized-domain') {
+        setNotification({ 
+          message: 'This domain is not authorized in Firebase Console. Add this URL to Authorized Domains.', 
+          type: 'error' 
+        });
+      } else {
+        setNotification({ message: 'Authentication failed. Please try again.', type: 'error' });
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      setCurrentStepIndex(0);
+      setNotification({ message: 'You have been logged out safely.', type: 'info' });
+    } catch (error) {
+      console.error("Logout Error:", error);
+    }
+  };
+
+  // Sync progress to Firestore
+  const syncProgress = async (newIndex: number) => {
+    if (user) {
+      try {
+        await updateDoc(doc(db, 'users', user.uid), {
+          currentStepIndex: newIndex,
+          lastUpdated: serverTimestamp()
+        });
+      } catch (error) {
+        console.error("Sync Error:", error);
+      }
+    }
+  };
+
   const handleStepUpdate = (text: string) => {
     const lowerText = text.toLowerCase();
+    // ... logic remains same ...
     const weights: Record<string, number> = {};
-
     ELECTION_STEPS.forEach((step, index) => {
       const keywords = {
         registration: ['register', 'voter id', 'form 6', 'electoral roll', 'apply', 'enroll'],
@@ -31,11 +118,8 @@ export default function App() {
       weights[step.id] = score;
     });
 
-    // Find step with highest score
     let bestStepIdx = -1;
     let maxScore = 0;
-    
-    // Iterate in reverse to prefer later stages if scores are equal
     for (let i = ELECTION_STEPS.length - 1; i >= 0; i--) {
       if (weights[ELECTION_STEPS[i].id] > maxScore) {
         maxScore = weights[ELECTION_STEPS[i].id];
@@ -45,6 +129,7 @@ export default function App() {
 
     if (bestStepIdx !== -1 && maxScore > 0) {
       setCurrentStepIndex(bestStepIdx);
+      syncProgress(bestStepIdx);
     }
   };
 
@@ -53,32 +138,88 @@ export default function App() {
   return (
     <div className="min-h-screen bg-paper text-ink font-sans selection:bg-accent selection:text-white flex flex-col relative">
       {/* Editorial Header */}
-      <header className="w-full border-b border-ink/10 px-6 md:px-10 py-6 flex flex-col md:flex-row justify-between items-baseline gap-4">
+      <header 
+        id="main-header"
+        className="w-full border-b border-ink/10 px-6 md:px-10 py-6 flex flex-col md:flex-row justify-between items-baseline gap-4"
+      >
         <div>
           <span className="tracking-extra-wide uppercase text-[10px] font-bold opacity-60">The Citizen's Mentorship Program</span>
           <h1 className="serif text-3xl font-black italic mt-1 leading-none">Matadaan Guide</h1>
         </div>
-        <div className="flex gap-8 text-[11px] uppercase tracking-widest font-bold">
+        <div className="flex items-center gap-8 text-[11px] uppercase tracking-widest font-bold">
           <button 
+            id="nav-guide"
             onClick={() => setActiveModal(null)}
             className={`pb-1 transition-all ${!activeModal ? 'border-b-2 border-ink' : 'opacity-40 hover:opacity-100'}`}
           >
             Guide
           </button>
           <button 
+            id="nav-resources"
             onClick={() => setActiveModal('resources')}
             className={`pb-1 transition-all ${activeModal === 'resources' ? 'border-b-2 border-ink' : 'opacity-40 hover:opacity-100'}`}
           >
             Resources
           </button>
           <button 
+            id="nav-faq"
             onClick={() => setActiveModal('faq')}
             className={`pb-1 transition-all ${activeModal === 'faq' ? 'border-b-2 border-ink' : 'opacity-40 hover:opacity-100'}`}
           >
             FAQ
           </button>
+          <div className="h-4 w-[1px] bg-ink/10 ml-2" />
+          {loading ? (
+            <div className="w-6 h-6 border-2 border-ink/10 border-t-ink rounded-full animate-spin" />
+          ) : user ? (
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 bg-accent rounded-full flex items-center justify-center text-[8px] text-paper">
+                  {user.displayName?.[0] || 'U'}
+                </div>
+                <span className="hidden lg:inline text-[8px] opacity-40">{user.displayName}</span>
+              </div>
+              <button 
+                id="btn-logout"
+                onClick={handleLogout}
+                className="opacity-40 hover:opacity-100 hover:text-accent transition-all flex items-center gap-1"
+              >
+                <LogOut size={12} />
+              </button>
+            </div>
+          ) : (
+            <button 
+              id="btn-login"
+              onClick={handleLogin}
+              className="flex items-center gap-2 bg-ink text-paper px-4 py-1.5 hover:bg-accent transition-all"
+            >
+              <LogIn size={12} />
+              <span>Login</span>
+            </button>
+          )}
         </div>
       </header>
+
+      {/* Global Notification */}
+      <AnimatePresence>
+        {notification && (
+          <motion.div
+            initial={{ opacity: 0, y: -50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -50 }}
+            className={`fixed top-24 left-1/2 -translate-x-1/2 z-[100] px-6 py-3 shadow-2xl border ${
+              notification.type === 'error' ? 'bg-accent text-white border-accent/20' : 
+              notification.type === 'success' ? 'bg-ink text-paper border-white/10' : 
+              'bg-paper text-ink border-ink/10'
+            }`}
+          >
+            <p className="text-[10px] uppercase tracking-widest font-black flex items-center gap-2">
+              <Info size={12} />
+              {notification.message}
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <main className="flex-1 grid grid-cols-1 md:grid-cols-[1.4fr_1fr] md:gap-16 p-6 md:p-10 overflow-hidden min-h-0 relative">
         <AnimatePresence mode="wait">

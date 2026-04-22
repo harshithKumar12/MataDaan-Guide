@@ -3,24 +3,55 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Send, User, Bot, Loader2 } from 'lucide-react';
 import { ChatMessage } from '../types';
 import { sendMessageStream } from '../services/geminiService';
+import { db, auth } from '../lib/firebase';
+import { collection, addDoc, query, orderBy, onSnapshot, serverTimestamp } from 'firebase/firestore';
 
 interface ChatInterfaceProps {
   onStepUpdate: (message: string) => void;
 }
 
 export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onStepUpdate }) => {
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: 'welcome',
-      role: 'model',
-      text: "Namaste! I'm your Election Education Assistant. 🗳️\n\nI'm here to help you navigate the voting process. How can I guide you today?",
-      timestamp: Date.now()
-    }
-  ]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [learningLevel, setLearningLevel] = useState<'beginner' | 'normal' | 'advanced'>('normal');
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Load chat history from Firestore if user is logged in
+  useEffect(() => {
+    const user = auth.currentUser;
+    if (user) {
+      const q = query(
+        collection(db, 'users', user.uid, 'messages'),
+        orderBy('timestamp', 'asc')
+      );
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        const loadedMessages = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        } as ChatMessage));
+        
+        if (loadedMessages.length === 0) {
+          setMessages([{
+            id: 'welcome',
+            role: 'model',
+            text: "Namaste! I'm your Election Education Assistant. 🗳️\n\nI'm here to help you navigate the voting process. How can I guide you today?",
+            timestamp: Date.now()
+          }]);
+        } else {
+          setMessages(loadedMessages);
+        }
+      });
+      return () => unsubscribe();
+    } else {
+      setMessages([{
+        id: 'welcome',
+        role: 'model',
+        text: "Namaste! I'm your Election Education Assistant. 🗳️\n\nI'm here to help you navigate the voting process. How can I guide you today?",
+        timestamp: Date.now()
+      }]);
+    }
+  }, []);
 
   const starters = [
     "I am a first-time voter",
@@ -46,24 +77,32 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onStepUpdate }) =>
       ? `${textToSend} (Please provide a detailed and insightful explanation)`
       : textToSend;
 
-    const userMessage: ChatMessage = {
-      id: Date.now().toString(),
-      role: 'user',
-      text: textToSend, // Store the display text, not the processed one
+    const user = auth.currentUser;
+    const userMessage = {
+      role: 'user' as const,
+      text: textToSend,
       timestamp: Date.now()
     };
 
-    setMessages(prev => [...prev, userMessage]);
+    if (user) {
+      await addDoc(collection(db, 'users', user.uid, 'messages'), userMessage);
+    } else {
+      setMessages(prev => [...prev, { id: Date.now().toString(), ...userMessage }]);
+    }
+    
     setInput('');
     setIsLoading(true);
 
     const modelMessageId = (Date.now() + 1).toString();
-    setMessages(prev => [...prev, {
-      id: modelMessageId,
-      role: 'model',
-      text: '',
-      timestamp: Date.now()
-    }]);
+    // For non-logged users, we still need local state updates for the stream
+    if (!user) {
+      setMessages(prev => [...prev, {
+        id: modelMessageId,
+        role: 'model',
+        text: '',
+        timestamp: Date.now()
+      }]);
+    }
 
     try {
       let accumulatedText = '';
@@ -71,9 +110,19 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onStepUpdate }) =>
       
       for await (const chunk of stream) {
         accumulatedText += chunk;
-        setMessages(prev => prev.map(msg => 
-          msg.id === modelMessageId ? { ...msg, text: accumulatedText } : msg
-        ));
+        if (!user) {
+          setMessages(prev => prev.map(msg => 
+            msg.id === modelMessageId ? { ...msg, text: accumulatedText } : msg
+          ));
+        }
+      }
+
+      if (user) {
+        await addDoc(collection(db, 'users', user.uid, 'messages'), {
+          role: 'model',
+          text: accumulatedText,
+          timestamp: Date.now()
+        });
       }
 
       onStepUpdate(accumulatedText);
@@ -136,8 +185,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onStepUpdate }) =>
               </div>
               <div className={`text-sm leading-relaxed max-w-[90%] md:max-w-[80%] transition-all duration-300 ${
                 msg.role === 'user' 
-                  ? 'bg-ink text-paper px-6 py-4 font-bold border border-white/10' 
-                  : 'text-ink/90 italic font-light serif text-xl md:text-2xl leading-tight'
+                  ? 'bg-paper text-ink px-6 py-4 font-bold border border-white/10 shadow-lg' 
+                  : 'text-paper/90 italic font-light serif text-xl md:text-2xl leading-tight'
               }`}>
                 {msg.role === 'model' && msg.text !== '' && '“'}{msg.text}{msg.role === 'model' && msg.text !== '' && '”'}
                 {msg.text === '' && isLoading && (
