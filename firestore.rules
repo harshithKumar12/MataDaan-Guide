@@ -47,5 +47,20 @@ service cloud.firestore {
       allow list: if isOwner(userId) && isValidId(userId);
       allow create: if isOwner(userId) && isValidId(userId) && isValidId(messageId) && isValidMessage(request.resource.data);
     }
+
+    // Impact & Engagement Analytics
+    match /engagement_analytics/{eventId} {
+      function isValidEvent(data) {
+        return data.keys().hasAll(['type', 'timestamp', 'userId'])
+          && data.type is string
+          && data.type.size() <= 64
+          && data.userId == (isSignedIn() ? request.auth.uid : 'anonymous')
+          && data.timestamp == request.time;
+      }
+
+      allow create: if isValidId(eventId) && isValidEvent(request.resource.data);
+      // Deny read/update/delete to everyone (including admins for now to ensure integrity)
+      allow read, update, delete: if false;
+    }
   }
 }

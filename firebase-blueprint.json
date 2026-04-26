@@ -23,6 +23,18 @@
         "timestamp": { "type": "integer" }
       },
       "required": ["role", "text", "timestamp"]
+    },
+    "EngagementEvent": {
+      "title": "Engagement Event",
+      "description": "A discrete event logged for impact measurement.",
+      "type": "object",
+      "properties": {
+        "type": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "userId": { "type": "string" },
+        "data": { "type": "object" }
+      },
+      "required": ["type", "timestamp"]
     }
   },
   "firestore": {
@@ -33,6 +45,10 @@
     "users/{userId}/messages/{messageId}": {
       "schema": "ChatMessage",
       "description": "Subcollection storing the conversation history for a specific user."
+    },
+    "engagement_analytics/{eventId}": {
+      "schema": "EngagementEvent",
+      "description": "Global collection for tracking user impact and feature engagement."
     }
   }
 }

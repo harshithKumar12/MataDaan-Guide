@@ -7,6 +7,8 @@ import { ELECTION_STEPS } from './constants';
 import { auth, googleProvider, db } from './lib/firebase';
 import { signInWithPopup, signOut, onAuthStateChanged, User } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { detectStepFromText } from './lib/electionUtils';
+import { logEngagementEvent } from './lib/firebase';
 
 export default function App() {
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
@@ -14,8 +16,14 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [notification, setNotification] = useState<{ message: string; type: 'error' | 'success' | 'info' } | null>(null);
+  const mainContentRef = React.useRef<HTMLElement>(null);
 
-  // Clear notification after 5 seconds
+  // Focus management when modal or phase changes
+  useEffect(() => {
+    if (activeModal || currentStepIndex !== undefined) {
+      mainContentRef.current?.focus();
+    }
+  }, [activeModal, currentStepIndex]);
   useEffect(() => {
     if (notification) {
       const timer = setTimeout(() => setNotification(null), 5000);
@@ -91,6 +99,11 @@ export default function App() {
           currentStepIndex: newIndex,
           lastUpdated: serverTimestamp()
         });
+        await logEngagementEvent('PHASE_CHANGE', { 
+          from: currentStepIndex, 
+          to: newIndex,
+          stepName: ELECTION_STEPS[newIndex].title 
+        });
       } catch (error) {
         console.error("Sync Error:", error);
       }
@@ -98,36 +111,9 @@ export default function App() {
   };
 
   const handleStepUpdate = (text: string) => {
-    const lowerText = text.toLowerCase();
-    // ... logic remains same ...
-    const weights: Record<string, number> = {};
-    ELECTION_STEPS.forEach((step, index) => {
-      const keywords = {
-        registration: ['register', 'voter id', 'form 6', 'electoral roll', 'apply', 'enroll'],
-        verification: ['verify', 'check name', 'nvsp', 'blo', 'search name', 'electoral search'],
-        campaigning: ['campaign', 'manifesto', 'candidate', 'party', 'rally', 'promises'],
-        voting: ['vote', 'evm', 'polling', 'booth', 'ink', 'vvpat', 'slip'],
-        counting: ['count', 'tally', 'machine', 'strong room', 'observer'],
-        results: ['result', 'winner', 'declared', 'victory', 'majority']
-      }[step.id] || [];
+    const bestStepIdx = detectStepFromText(text);
 
-      let score = 0;
-      keywords.forEach(k => {
-        if (lowerText.includes(k)) score += 1;
-      });
-      weights[step.id] = score;
-    });
-
-    let bestStepIdx = -1;
-    let maxScore = 0;
-    for (let i = ELECTION_STEPS.length - 1; i >= 0; i--) {
-      if (weights[ELECTION_STEPS[i].id] > maxScore) {
-        maxScore = weights[ELECTION_STEPS[i].id];
-        bestStepIdx = i;
-      }
-    }
-
-    if (bestStepIdx !== -1 && maxScore > 0) {
+    if (bestStepIdx !== -1) {
       setCurrentStepIndex(bestStepIdx);
       syncProgress(bestStepIdx);
     }
@@ -137,19 +123,29 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-paper text-ink font-sans selection:bg-accent selection:text-white flex flex-col relative">
+      {/* Skip Link for A11y */}
+      <a 
+        href="#main-content" 
+        className="absolute -top-10 left-0 bg-ink text-paper px-4 py-2 z-[200] focus:top-0 transition-all text-[10px] uppercase font-bold"
+      >
+        Skip to main content
+      </a>
+
       {/* Editorial Header */}
       <header 
         id="main-header"
         className="w-full border-b border-ink/10 px-6 md:px-10 py-6 flex flex-col md:flex-row justify-between items-baseline gap-4"
+        role="banner"
       >
         <div>
           <span className="tracking-extra-wide uppercase text-[10px] font-bold opacity-60">The Citizen's Mentorship Program</span>
           <h1 className="serif text-3xl font-black italic mt-1 leading-none">Matadaan Guide</h1>
         </div>
-        <div className="flex items-center gap-8 text-[11px] uppercase tracking-widest font-bold">
+        <nav className="flex items-center gap-8 text-[11px] uppercase tracking-widest font-bold" aria-label="Main Navigation">
           <button 
             id="nav-guide"
             onClick={() => setActiveModal(null)}
+            aria-current={!activeModal ? 'page' : undefined}
             className={`pb-1 transition-all ${!activeModal ? 'border-b-2 border-ink' : 'opacity-40 hover:opacity-100'}`}
           >
             Guide
@@ -157,6 +153,7 @@ export default function App() {
           <button 
             id="nav-resources"
             onClick={() => setActiveModal('resources')}
+            aria-current={activeModal === 'resources' ? 'page' : undefined}
             className={`pb-1 transition-all ${activeModal === 'resources' ? 'border-b-2 border-ink' : 'opacity-40 hover:opacity-100'}`}
           >
             Resources
@@ -164,24 +161,27 @@ export default function App() {
           <button 
             id="nav-faq"
             onClick={() => setActiveModal('faq')}
+            aria-current={activeModal === 'faq' ? 'page' : undefined}
             className={`pb-1 transition-all ${activeModal === 'faq' ? 'border-b-2 border-ink' : 'opacity-40 hover:opacity-100'}`}
           >
             FAQ
           </button>
-          <div className="h-4 w-[1px] bg-ink/10 ml-2" />
+          <div className="h-4 w-[1px] bg-ink/10 ml-2" aria-hidden="true" />
           {loading ? (
-            <div className="w-6 h-6 border-2 border-ink/10 border-t-ink rounded-full animate-spin" />
+            <div className="w-6 h-6 border-2 border-ink/10 border-t-ink rounded-full animate-spin" aria-label="Authenticating" />
           ) : user ? (
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
-                <div className="w-6 h-6 bg-accent rounded-full flex items-center justify-center text-[8px] text-paper">
+                <div className="w-6 h-6 bg-accent rounded-full flex items-center justify-center text-[8px] text-paper" aria-hidden="true">
                   {user.displayName?.[0] || 'U'}
                 </div>
+                <span className="hidden lg:inline text-[8px] opacity-40 sr-only">Logged in as </span>
                 <span className="hidden lg:inline text-[8px] opacity-40">{user.displayName}</span>
               </div>
               <button 
                 id="btn-logout"
                 onClick={handleLogout}
+                aria-label="Logout"
                 className="opacity-40 hover:opacity-100 hover:text-accent transition-all flex items-center gap-1"
               >
                 <LogOut size={12} />
@@ -191,13 +191,13 @@ export default function App() {
             <button 
               id="btn-login"
               onClick={handleLogin}
-              className="flex items-center gap-2 bg-ink text-paper px-4 py-1.5 hover:bg-accent transition-all"
+              className="flex items-center gap-2 bg-ink text-paper px-4 py-1.5 hover:bg-accent transition-all focus-ring"
             >
               <LogIn size={12} />
               <span>Login</span>
             </button>
           )}
-        </div>
+        </nav>
       </header>
 
       {/* Global Notification */}
@@ -221,7 +221,12 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      <main className="flex-1 grid grid-cols-1 md:grid-cols-[1.4fr_1fr] md:gap-16 p-6 md:p-10 overflow-hidden min-h-0 relative">
+      <main 
+        id="main-content"
+        ref={mainContentRef}
+        tabIndex={-1}
+        className="flex-1 grid grid-cols-1 md:grid-cols-[1.4fr_1fr] md:gap-16 p-6 md:p-10 overflow-hidden min-h-0 relative focus:outline-none"
+      >
         <AnimatePresence mode="wait">
           {!activeModal ? (
             <motion.div 
@@ -232,9 +237,9 @@ export default function App() {
               className="contents"
             >
               {/* Left Section: Active Phase & Chat */}
-              <section className="flex flex-col h-full overflow-hidden">
+              <section className="flex flex-col h-full overflow-hidden" aria-labelledby="active-phase-title">
                 <div className="relative mb-12 flex-shrink-0">
-                  <span className="serif text-[120px] md:text-[140px] line-height-[0.8] opacity-10 absolute -top-8 -left-4 pointer-events-none select-none">
+                  <span className="serif text-[120px] md:text-[140px] line-height-[0.8] opacity-10 absolute -top-8 -left-4 pointer-events-none select-none" aria-hidden="true">
                     {String(currentStepIndex + 1).padStart(2, '0')}
                   </span>
                   
@@ -242,7 +247,7 @@ export default function App() {
                     <span className="bg-ink text-paper px-3 py-1 text-[10px] font-bold uppercase tracking-widest">
                       Phase {currentStepIndex + 1}
                     </span>
-                    <h2 className="serif text-5xl md:text-7xl font-black mt-4 leading-none tracking-tightest">
+                    <h2 id="active-phase-title" className="serif text-5xl md:text-7xl font-black mt-4 leading-none tracking-tightest">
                       {currentStep.title.split(' ').map((word, i) => (
                         <React.Fragment key={i}>
                           {word} {i === 0 && <br className="hidden md:block" />}
@@ -255,7 +260,7 @@ export default function App() {
                   </div>
                 </div>
 
-                <div className="hidden lg:grid grid-cols-2 gap-8 mb-8 flex-shrink-0">
+                <div className="hidden lg:grid grid-cols-2 gap-8 mb-8 flex-shrink-0" aria-label="Quick statistics">
                   <div className="space-y-4">
                     <h4 className="uppercase text-[9px] font-bold tracking-[0.2em] border-b border-ink/10 pb-2">Quick Stats</h4>
                     <div className="flex items-center gap-4">
@@ -277,11 +282,11 @@ export default function App() {
               </section>
 
               {/* Right Section: Timeline & Rule */}
-              <section className="relative pl-0 md:pl-12 hidden md:flex flex-col h-full overflow-hidden">
-                <div className="absolute left-0 top-0 bottom-0 w-[1px] bg-ink/10" />
+              <aside className="relative pl-0 md:pl-12 hidden md:flex flex-col h-full overflow-hidden" aria-labelledby="timeline-title">
+                <div className="absolute left-0 top-0 bottom-0 w-[1px] bg-ink/10" aria-hidden="true" />
                 
                 <div className="flex flex-col h-full">
-                  <h3 className="uppercase text-[10px] font-bold tracking-[0.3em] text-center opacity-40 mb-12 flex-shrink-0">
+                  <h3 id="timeline-title" className="uppercase text-[10px] font-bold tracking-[0.3em] text-center opacity-40 mb-12 flex-shrink-0">
                     The Election Lifecycle
                   </h3>
                   
@@ -289,14 +294,14 @@ export default function App() {
                     <ElectionTimeline currentStepIndex={currentStepIndex} />
                   </div>
 
-                  <div className="mt-8 bg-ink/5 p-6 border border-ink/5 flex-shrink-0">
+                  <div className="mt-8 bg-ink/5 p-6 border border-ink/5 flex-shrink-0" role="complementary" aria-label="Safety Information">
                     <h4 className="serif italic font-bold text-lg mb-2">Misinformation Safety</h4>
                     <p className="text-xs leading-relaxed opacity-70">
                       Actually, you can vote even without a physical Voter ID card if your name is on the roll and you have a valid government-approved identity proof.
                     </p>
                   </div>
                 </div>
-              </section>
+              </aside>
             </motion.div>
           ) : activeModal === 'resources' ? (
             <motion.div 
@@ -389,7 +394,7 @@ export default function App() {
       </main>
 
       {/* Editorial Footer */}
-      <footer className="p-6 md:p-10 flex flex-col md:flex-row justify-between items-center bg-white border-t border-ink/10 gap-4">
+      <footer className="p-6 md:p-10 flex flex-col md:flex-row justify-between items-center bg-white border-t border-ink/10 gap-4" role="contentinfo">
         <div className="flex gap-8 text-[9px] uppercase tracking-widest font-black">
           <span className="text-ink">Election Commission of India</span>
           <span className="text-ink/60">Voter Helpline: 1950</span>

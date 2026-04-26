@@ -1,21 +1,14 @@
 # Matadaan Guide: Election Education Assistant
 
-Matadaan Guide is an interactive, mentorship-driven web application designed to simplify and educate citizens about the election process, with a primary focus on the Indian democratic system. Instead of acting like a generic chatbot, it provides a structured, guided learning experience that walks users through the entire election lifecycle (Vibe Coded using Google AI Studio)
+Matadaan Guide is an interactive, mentorship-focused web application designed to educate citizens about the election process, primarily focusing on the Indian democratic system.
 
-## Chosen Vertical: Civic Education & Literacy
+## 🎯 Chosen Vertical: Civic Education & Literacy
+The application addresses the "Election Process Education Assistant" requirement. It moves away from generic chatbots by adopting a **guided mentorship** model that leads users through a structured 6-phase election lifecycle.
 
-This project falls under Civic Education & Literacy, addressing the problem of helping users understand the election process in a clear, engaging, and interactive way.
-
-Elections are often perceived as complex due to legal jargon, multiple steps, and misinformation. Matadaan Guide tackles this by breaking down the process into an easy-to-follow journey tailored especially for:
-
-- First-time voters
-- Citizens seeking clarification on procedures
-- Users exposed to election-related misinformation
-
-## Approach and Logic
+## 🧠 Approach and Logic
 
 ### 1. Phased Journey Model
-The core logic is based on a 6-phase election lifecycle, transforming a complex system into a structured learning flow:
+Elections are complex workflows. The logic is built around the **Election Lifecycle**, which is divided into six logical phases:
 - Voter Registration
 - Voter Verification
 - Campaigning Period
@@ -23,78 +16,48 @@ The core logic is based on a 6-phase election lifecycle, transforming a complex 
 - Vote Counting
 - Result Declaration
 
-The application maintains a `currentStepIndex` state that dynamically controls:
-- UI highlights
-- Timeline progression
-- Context of information shown to the user
+The app maintains a `currentStepIndex` state which dictates the visual focus of the UI (oversized phase headers and timeline highlights).
 
 ### 2. Intelligent State Synchronization
-A key innovation is the Heuristic Progress Engine implemented in `App.tsx`.
-The AI response is scanned for contextual keywords such as:
-- EVM,
-- Form 6,
-- NVSP,
- etc.
-Based on detected keywords:
-- The UI automatically shifts to the relevant election phase;
-- Ensures seamless synchronization between conversation and visual flow.
-**Key Benefits:**
-- No manual navigation required;
-- Context-aware UI updates;
-- Smooth learning experience.
+A core logic component is the **Heuristic Progress Engine** in `App.tsx`. When the AI assistant responds, the app parses the text for specific keywords related to the election phases (e.g., "EVM", "Form 6", "NVSP"). 
+- **Upward Mobility:** If a user starts talking about registration, the UI shifts to Phase 1. If they ask about results, it jumps to Phase 6.
+- **Context Preservation:** This ensures the UI is always in sync with the conversation without the user needing to manually click buttons.
 
-### 3. AI Services (Conversational Engine)
-The assistant is powered by a low-latency AI model integrated via a modular service layer.
-It is configured using a strong `SYSTEM_INSTRUCTION` to ensure:
-> Political neutrality  
-> Simplified explanations (no heavy legal jargon)  
-> Context-aware guidance (e.g., first-time voter vs experienced voter)  
-> Myth-busting and misinformation handling.
-** How the Solution Works:**
-### Frontend 
-React + Vite — Fast, modern UI development 
-tailwind CSS — Utility-first styling 
-UI/UX Design 
-"Editorial Aesthetic" theme:
-sans-serif typography (Playfair Display)
-paper-and-ink color palette
-designed to feel like a trusted civic guide.
-Animations 
-Framer Motion 
-smooth transitions between phases 
-p progressive message reveal 
-r reinforces mentorship-style interaction.
-Data Architecture 
-src/constants.ts — Stores election phases and AI persona definitions; src/types.ts — Defines interfaces for chat messages and application state; src/services/geminiService.ts (or equivalent AI service module) — Handles streaming AI responses and encapsulates API interaction logic.
-### How It Works (Flow)
-uUser starts a conversation (e.g., “How do I register to vote?”)
-aI generates a contextual response;
-aHeuristic engine detects keywords;
-the UI automatically shifts to the relevant phase;
-uUser continues learning step-by-step with guided interaction.
-this creates a feedback loop between AI + UI, ensuring a coherent experience.
+### 3. AI Services (Gemini Integration)
+The assistant uses the **Gemini 3 Flash** model to provide low-latency, conversational guidance. It is configured with a robust `SYSTEM_INSTRUCTION` that enforces:
+- Neutrality and lack of political bias.
+- Simplification of technical/legal jargon.
+- Active verification of user status (e.g., first-time voter).
 
-## Assumptions Made
-default context: The system assumes India as the default context, based on guidelines from the Election Commission of India (ECI). The assistant adapts if the user specifies another country.
-eUser personas: The app is designed assuming two primary user types:
-fFirst-time voters → Need step-by-step guidance;
-fExperienced voters → Need clarification on specific steps.
-mMisinformation barrier: Users may have misconceptions such as "I can’t vote without a voter ID card." The system proactively detects such cases and provides clear, factual corrections.
-eEnvironment assumptions: Runs in a modern web environment; requires API key setup (e.g., via environment variables like `process.env.API_KEY`); stable internet connection for AI interaction.
+## 🛠 Tech Stack & Engineering Excellence
 
-## Screenshots
-### HomePage - 
-![image](https://github.com/harshithKumar12/MataDaan-Guide/blob/main/screenshots/homePage.png)
-### ChatBot - 
-![image](https://github.com/harshithKumar12/MataDaan-Guide/blob/main/screenshots/homePage.png)
-## Summary
-Matadaan Guide transforms election education from a static information problem into an interactive, guided learning experience by combining:
-a Structured phase-based learning,
-a Context-aware AI assistance,
-and Dynamic UI synchronization.
-the result is a system that is not just informative—but intuitive, adaptive, and user-centric.
+- **Frontend:** React 19 + Vite 6 + Tailwind CSS 4.
+- **Backend:** Node.js Express proxy to secure Gemini API keys.
+- **Security:** Hardened with `Helmet.js` and server-side secret management.
+- **AI:** Gemini 1.5 Flash for high-speed, intelligent mentorship.
+- **Persistence:** Firebase Auth + Firestore for cross-device progress synchronization.
+- **Testing:** Comprehensive suite with Vitest and React Testing Library (Unit + Component tests).
+- **Accessibility:** WCAG 2.1 Compliant (ARIA landmarks, labels, and keyboard navigation).
 
+## 🧠 Engineering Logic
 
+### 1. Phased Journey Model
+Elections are complex workflows. The logic is built around the **Election Lifecycle**, which is divided into six logical phases from registration to results.
 
+### 2. Heuristic Progress Detection
+Extracted into `src/lib/electionUtils.ts`, this logic uses weighted keyword analysis to automatically detect which phase of the election the user is discussing, syncing the UI timeline in real-time.
 
-Link to the app - https://ai.studio/apps/065925e0-b994-4b24-af67-567887b8d1f8
+### 3. Production Hardening
+- **Security:** Moved all AI logic to a backend proxy to prevent API key leakage.
+- **Stability:** Implemented health checks and robust error handling for Firebase and AI streams.
+- **Accessibility:** Every interactive element has an ID and ARIA attributes for screen reader compatibility.
+
+## 🧪 Quality Assurance
+
+Run the test suite to verify logic and accessibility:
+```bash
+npx vitest run
+```
+The suite includes:
+- **Unit Tests:** `detectStepFromText` logic verification.
+- **Component Tests:** `ElectionTimeline` rendering and state highlighting.

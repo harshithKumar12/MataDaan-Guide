@@ -18,7 +18,7 @@ interface ElectionTimelineProps {
 
 export const ElectionTimeline: React.FC<ElectionTimelineProps> = ({ currentStepIndex }) => {
   return (
-    <div className="flex flex-col space-y-16">
+    <nav className="flex flex-col space-y-16" aria-label="Election Stages">
       {ELECTION_STEPS.map((step, index) => {
         const isActive = index === currentStepIndex;
         const isCompleted = index < currentStepIndex;
@@ -29,8 +29,10 @@ export const ElectionTimeline: React.FC<ElectionTimelineProps> = ({ currentStepI
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: isActive || isCompleted ? 1 : 0.3, x: 0 }}
             className="flex items-start gap-8 group cursor-default"
+            aria-current={isActive ? 'step' : undefined}
           >
             <div 
+              aria-hidden="true"
               className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-[10px] border-2 transition-all duration-500 flex-shrink-0 mt-1 ${
                 isActive ? 'bg-ink text-paper border-ink ring-4 ring-ink/5' : 
                 isCompleted ? 'bg-accent text-paper border-accent' : 
@@ -52,14 +54,16 @@ export const ElectionTimeline: React.FC<ElectionTimelineProps> = ({ currentStepI
                   animate={{ opacity: 1 }}
                   className="mt-4 text-xs font-medium leading-relaxed opacity-60 max-w-[200px]"
                 >
+                  <span className="sr-only">Step details: </span>
                   {step.description}
                 </motion.p>
               )}
+              {isCompleted && <span className="sr-only">(Completed)</span>}
             </div>
           </motion.div>
         );
       })}
-    </div>
+    </nav>
   );
 };
 
