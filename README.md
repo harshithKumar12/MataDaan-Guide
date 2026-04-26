@@ -88,10 +88,10 @@ eEnvironment assumptions: Runs in a modern web environment; requires API key set
 ### ChatBot - 
 ![image](https://github.com/harshithKumar12/MataDaan-Guide/blob/main/screenshots/homePage.png)
 ## Summary
-tMatadaan Guide transforms election education from a static information problem into an interactive, guided learning experience by combining:
-aStructured phase-based learning,
-aContext-aware AI assistance,
-andDynamic UI synchronization.
+Matadaan Guide transforms election education from a static information problem into an interactive, guided learning experience by combining:
+a Structured phase-based learning,
+a Context-aware AI assistance,
+and Dynamic UI synchronization.
 the result is a system that is not just informative—but intuitive, adaptive, and user-centric.
 
 
